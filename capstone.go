@@ -10,12 +10,88 @@ import (
 	_ "github.com/go-asm/capstone/internal/syso"
 )
 
+// Engine represents a capstone engine.
+type Engine struct {
+	arch     CsArch
+	mode     CsMode
+	handle   *Csh
+	skipData *CsOptSkipdata
+}
+
+var cs_open_trampoline_addr uintptr
+
+// New returns the new Engine with the specified arch and mode.
+//go:nosplit
+func New(arch CsArch, mode CsMode) (Engine, error) {
+	var handle Csh
+	_, _, errno := syscall3(cs_open_trampoline_addr, uintptr(arch), uintptr(mode), uintptr(unsafe.Pointer(&handle)))
+	if errno != 0 {
+		return Engine{}, CsErr(errno)
+	}
+
+	e := Engine{
+		arch:   arch,
+		mode:   mode,
+		handle: &handle,
+	}
+
+	return e, nil
+}
+
+//go:nosplit
+func (e *Engine) Arch() CsArch {
+	return e.arch
+}
+
+//go:nosplit
+func (e *Engine) Mode() CsMode {
+	return e.mode
+}
+
+var cs_close_trampoline_addr uintptr
+
+// Close CS handle. MUST do to release the handle when it is not used anymore.
+//
+// NOTE: this must be only called when there is no longer usage of Capstone,
+// not even access to cs_insn array. The reason is the this API releases some
+// cached memory, thus access to any Capstone API after cs_close() might crash
+// your application.
+//
+// In fact,this API invalidate @handle by ZERO out its value (i.e *handle = 0).
+//go:nosplit
+func (e *Engine) Close() error {
+	_, _, errno := syscall3(cs_close_trampoline_addr, uintptr(unsafe.Pointer(e.handle)), 0, 0)
+	if errno != 0 {
+		return CsErr(errno)
+	}
+	if e.skipData != nil {
+		free(unsafe.Pointer(e.skipData.Mnemonic))
+	}
+
+	return nil
+}
+
+var libc_free_trampoline_addr uintptr
+
+//go:cgo_import_dynamic libc_free free "/usr/lib/libSystem.B.dylib"
+
+//go:nosplit
+func free(p unsafe.Pointer) error {
+	_, _, errno := syscall3(libc_free_trampoline_addr, uintptr(unsafe.Pointer(&p)), 0, 0)
+	if errno != 0 {
+		return errno
+	}
+
+	return nil
+}
+
 var cs_version_trampoline_addr uintptr
 
 // Version return combined API version & major and minor version numbers.
 //
 // major is major number of API version.
 // minor is minor number of API version.
+//go:nosplit
 func Version() (major, minor int32) {
 	_, _, errno := syscall3(cs_version_trampoline_addr, uintptr(unsafe.Pointer(&major)), uintptr(unsafe.Pointer(&minor)), 0)
 	if errno != 0 {
@@ -28,6 +104,7 @@ func Version() (major, minor int32) {
 var cs_strerror_trampoline_addr uintptr
 
 // CsStrerror return a string describing given error code.
+//go:nosplit
 func CsStrerror(code CsErr) byte {
 	s, _, errno := syscall3(cs_strerror_trampoline_addr, uintptr(code), 0, 0)
 	if errno != 0 {
@@ -133,18 +210,15 @@ func Errno(err error) error {
 	return err
 }
 
-//sys func CsClose(handle int64) Cs_err
 //sys func CsDisasm(handle int64, code byte, codeSize int64, address uint64, count int64, insn Cs_insn **) uint64
 //sys func CsDisasmIter(handle int64, code Unsigned char **, size int64, address uint64, insn Cs_insn) int32
 //sys func CsErrno(handle int64) Cs_err
-//sys func CsFree(insn Cs_insn, count int64) unsafe.Pointer
 //sys func CsGroupName(handle int64, groupId uint32) int8
 //sys func CsInsnGroup(handle int64, insn Cs_insn, groupId uint32) int32
 //sys func CsInsnName(handle int64, insnId uint32) int8
 //sys func CsMalloc(handle int64) Cs_insn
 //sys func CsOpCount(handle int64, insn Cs_insn, opType uint32) int32
 //sys func CsOpIndex(handle int64, insn Cs_insn, opType uint32, position uint32) int32
-//sys func CsOpen(arch Cs_arch, mode Cs_mode, handle int64) Cs_err
 //sys func CsOption(handle int64, type Cs_opt_type, value int64) Cs_err
 //sys func CsRegName(handle int64, regId uint32) int8
 //sys func CsRegRead(handle int64, insn Cs_insn, regId uint32) int32
