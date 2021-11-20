@@ -123,3 +123,8 @@ func rawsyscall(fn, a1, a2, a3 uintptr) (r1, r2 uintptr, err syscall.Errno)
 //go:noescape
 //go:linkname rawsyscall6 syscall.RawSyscall6
 func rawsyscall6(fn, a1, a2, a3, a4, a5, a6 uintptr) (r1, r2 uintptr, err syscall.Errno)
+
+// goString converts a C string to a Go string.
+//go:nosplit
+//go:linkname goString runtime.gostringnocopy
+func goString(str *byte) string
