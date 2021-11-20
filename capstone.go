@@ -94,6 +94,45 @@ func (e CsErr) Error() string {
 	}
 }
 
+// Errno report the last error number when some API function fail.
+// Like glibc's errno, cs_errno might not retain its old value once accessed.
+func Errno(err error) error {
+	switch err {
+	case CS_ERR_OK:
+		return ErrOK
+	case CS_ERR_MEM:
+		return ErrMem
+	case CS_ERR_ARCH:
+		return ErrArch
+	case CS_ERR_HANDLE:
+		return ErrHandle
+	case CS_ERR_CSH:
+		return ErrCsh
+	case CS_ERR_MODE:
+		return ErrMode
+	case CS_ERR_OPTION:
+		return ErrOption
+	case CS_ERR_DETAIL:
+		return ErrDetail
+	case CS_ERR_MEMSETUP:
+		return ErrMemSetup
+	case CS_ERR_VERSION:
+		return ErrVersion
+	case CS_ERR_DIET:
+		return ErrDiet
+	case CS_ERR_SKIPDATA:
+		return ErrSkipData
+	case CS_ERR_X86_ATT:
+		return ErrX86ATT
+	case CS_ERR_X86_INTEL:
+		return ErrX86Intel
+	case CS_ERR_X86_MASM:
+		return ErrX86Masm
+	}
+
+	return err
+}
+
 //sys func CsClose(handle int64) Cs_err
 //sys func CsDisasm(handle int64, code byte, codeSize int64, address uint64, count int64, insn Cs_insn **) uint64
 //sys func CsDisasmIter(handle int64, code Unsigned char **, size int64, address uint64, insn Cs_insn) int32
