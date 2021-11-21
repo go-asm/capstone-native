@@ -114,7 +114,7 @@ func TestNew(t *testing.T) {
 
 			engine, err := capstone.New(tt.arch, tt.mode)
 			if err != nil {
-				t.Fatalf("capstone.New: %v", err)
+				t.Fatalf("capstone.New: %s", err)
 			}
 			defer engine.Close()
 
